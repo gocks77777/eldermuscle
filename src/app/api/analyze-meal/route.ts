@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { logToSplunk } from '@/lib/splunk'
 
 const hasGemini = Boolean(
   process.env.GOOGLE_API_KEY && !process.env.GOOGLE_API_KEY.includes('your_google')
@@ -54,6 +55,12 @@ Return ONLY valid JSON (no other text):
       },
     ]
     const demo = demoMeals[Math.floor(Math.random() * demoMeals.length)]
+    await logToSplunk('meal_analysis', {
+      mode: 'demo',
+      total_protein_g: demo.total_protein_g,
+      food_item_count: demo.food_items.length,
+      timestamp: new Date().toISOString(),
+    })
     return NextResponse.json(demo)
   }
 
@@ -69,7 +76,15 @@ Return ONLY valid JSON (no other text):
     const text = result.response.text()
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON in Gemini response')
-    return NextResponse.json(JSON.parse(jsonMatch[0]))
+    const parsed = JSON.parse(jsonMatch[0])
+    await logToSplunk('meal_analysis', {
+      mode: 'gemini',
+      total_protein_g: parsed.total_protein_g,
+      food_item_count: parsed.food_items?.length ?? 0,
+      mime_type: mimeType,
+      timestamp: new Date().toISOString(),
+    })
+    return NextResponse.json(parsed)
   } catch (err) {
     console.error('Gemini Vision error:', err)
     return NextResponse.json({

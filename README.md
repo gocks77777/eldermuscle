@@ -36,6 +36,23 @@ See [`architecture_diagram.md`](architecture_diagram.md) for a detailed text des
 | **Gemini 1.5 Pro** | AI nutrition agent with function calling for InBody diagnostics |
 | **Cloud Run** | Containerized deployment (Dockerfile included) |
 
+## Splunk Integration (Observability Track)
+
+ElderMuscle sends operational events to **Splunk via HTTP Event Collector (HEC)** for real-time observability:
+
+| Event | Source Type | Key Fields |
+|---|---|---|
+| Meal photo analyzed | `meal_analysis` | `total_protein_g`, `food_item_count`, `mode` |
+| Meal logged | `meal_logged` | `userId`, `meal_type`, `total_protein_g` |
+| Profile saved | `profile_saved` | `sarcopenia_stage`, `smi`, `daily_protein_target_g` |
+| AI agent query | `agent_interaction` | `function_calls_made`, `response_length` |
+
+Use these events in Splunk to build dashboards tracking:
+- Population-level sarcopenia risk distribution
+- Daily protein intake trends across users
+- Meal analysis usage patterns
+- AI agent engagement metrics
+
 ---
 
 ## Tech Stack

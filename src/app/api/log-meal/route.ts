@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server'
 import { getDb, hasMongo } from '@/lib/mongodb'
+import { logToSplunk } from '@/lib/splunk'
 
 export async function POST(req: Request) {
   const body = await req.json()
+
+  await logToSplunk('meal_logged', {
+    userId: body.userId ?? 'demo',
+    meal_type: body.mealType,
+    total_protein_g: body.totalProteinG,
+    food_item_count: body.foodItems?.length ?? 0,
+    mode: hasMongo ? 'mongo' : 'demo',
+    timestamp: new Date().toISOString(),
+  })
 
   if (hasMongo) {
     try {

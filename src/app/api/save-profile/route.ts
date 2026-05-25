@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server'
 import { getDb, hasMongo } from '@/lib/mongodb'
 import { analyzeSarcopenia, InBodyData } from '@/lib/sarcopenia'
+import { logToSplunk } from '@/lib/splunk'
 
 export async function POST(req: Request) {
   const body: InBodyData & { name: string; caregiverEmail?: string; userId?: string } = await req.json()
   const result = analyzeSarcopenia(body)
+
+  await logToSplunk('profile_saved', {
+    userId: body.userId ?? 'demo',
+    age: body.age,
+    gender: body.gender,
+    sarcopenia_stage: result.stage,
+    smi: result.smi,
+    daily_protein_target_g: result.dailyProteinTarget,
+    timestamp: new Date().toISOString(),
+  })
 
   if (hasMongo) {
     try {

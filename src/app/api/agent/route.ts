@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI, FunctionDeclaration, SchemaType } from '@google/generative-ai'
 import { analyzeSarcopenia } from '@/lib/sarcopenia'
 import { getDb, hasMongo } from '@/lib/mongodb'
+import { logToSplunk } from '@/lib/splunk'
 
 export const maxDuration = 60
 
@@ -92,8 +93,10 @@ When analyzing InBody data, always use the analyze_inbody tool.`,
 
     // Handle function calls
     let response = result.response
+    let totalFunctionCalls = 0
     while (response.functionCalls()?.length) {
       const calls = response.functionCalls()!
+      totalFunctionCalls += calls.length
       const toolResults = await Promise.all(
         calls.map(async (call) => ({
           functionResponse: {
@@ -107,6 +110,13 @@ When analyzing InBody data, always use the analyze_inbody tool.`,
     }
 
     const text = response.text()
+
+    await logToSplunk('agent_interaction', {
+      message_count: messages.length,
+      function_calls_made: totalFunctionCalls,
+      response_length: text.length,
+      timestamp: new Date().toISOString(),
+    })
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
