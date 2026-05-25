@@ -2,11 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { analyzeSarcopenia, getStageLabelKo, getStageColor } from '@/lib/sarcopenia'
+import BottomNav from '@/components/BottomNav'
+import { analyzeSarcopenia, getStageLabelKo } from '@/lib/sarcopenia'
 
 type Step = 'form' | 'result'
 
@@ -33,7 +32,6 @@ export default function OnboardingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-
     const inBodyData = {
       age: Number(form.age),
       gender: form.gender,
@@ -41,213 +39,151 @@ export default function OnboardingPage() {
       height: Number(form.height),
       skeletalMuscleMass: Number(form.skeletalMuscleMass),
     }
-
     const res = analyzeSarcopenia(inBodyData)
     setResult(res)
-
-    // Save to localStorage for demo (will use Supabase when auth is set up)
     localStorage.setItem('eldermuscle_profile', JSON.stringify({
-      ...form,
-      ...inBodyData,
+      ...form, ...inBodyData,
       smi: res.smi,
       sarcopeniaStage: res.stage,
       dailyProteinTarget: res.dailyProteinTarget,
     }))
-
     setLoading(false)
     setStep('result')
   }
 
   if (step === 'result' && result) {
-    const stageColor = getStageColor(result.stage)
-    const stageLabel = getStageLabelKo(result.stage)
-    const stageDesc = result.stage === 'sarcopenia'
-      ? '근감소증이 있으시네요. 지금 바로 단백질 섭취를 늘려야 합니다!'
-      : result.stage === 'at-risk'
-      ? '근감소증 위험군입니다. 지금부터 관리하면 충분히 좋아질 수 있어요!'
-      : '근육 상태가 양호합니다. 꾸준히 유지하세요!'
+    const cfg = {
+      sarcopenia: { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', msg: 'Immediate action recommended. Include a protein-rich food in every meal to slow muscle loss.' },
+      'at-risk': { color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', msg: 'You\'re in the at-risk zone, but consistent protein intake can reverse this. Let\'s track it together.' },
+      normal: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', msg: 'Your muscle mass is healthy. Keep up the good work with daily protein goals.' },
+    }[result.stage]
 
     return (
-      <main className="min-h-screen bg-gradient-to-b from-green-50 to-white px-6 py-10">
-        <div className="max-w-md mx-auto space-y-6">
-          <div className="text-center">
-            <div className="text-6xl mb-4">
-              {result.stage === 'sarcopenia' ? '⚠️' : result.stage === 'at-risk' ? '🟡' : '✅'}
+      <main className="min-h-screen bg-gray-50 px-5 py-8 pb-28">
+        <div className="max-w-md mx-auto space-y-5">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Your Results</h1>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-50">
+              <p className="text-sm text-gray-400">Diagnosis</p>
+              <p className={`text-2xl font-bold mt-1 ${cfg.color}`}>{getStageLabelKo(result.stage)}</p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">분석 결과</h1>
+            <div className="divide-y divide-gray-50">
+              {[
+                { label: 'SMI (Skeletal Muscle Index)', value: `${result.smi} kg/m²` },
+                { label: 'Daily Protein Target', value: `${result.dailyProteinTarget}g`, highlight: true },
+                { label: 'Per kg of body weight', value: `${result.proteinPerKg}g/kg` },
+              ].map(({ label, value, highlight }) => (
+                <div key={label} className="px-6 py-4 flex justify-between items-center">
+                  <span className="text-base text-gray-500">{label}</span>
+                  <span className={`text-lg font-bold ${highlight ? cfg.color : 'text-gray-900'}`}>{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center">
-                {form.name}님의 근육 상태
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="flex justify-between items-center py-3 border-b">
-                <span className="text-xl text-gray-600">SMI (근육 지수)</span>
-                <span className="text-2xl font-bold">{result.smi} kg/m²</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b">
-                <span className="text-xl text-gray-600">진단</span>
-                <span className={`text-2xl font-bold ${stageColor}`}>{stageLabel}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b">
-                <span className="text-xl text-gray-600">권장 단백질</span>
-                <span className="text-2xl font-bold text-green-700">{result.dailyProteinTarget}g/일</span>
-              </div>
-              <div className="flex justify-between items-center py-3">
-                <span className="text-xl text-gray-600">체중 1kg당</span>
-                <span className="text-xl font-semibold">{result.proteinPerKg}g</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className={`p-5 rounded-2xl ${result.stage === 'sarcopenia' ? 'bg-red-50' : result.stage === 'at-risk' ? 'bg-orange-50' : 'bg-green-50'}`}>
-            <p className="text-xl text-gray-800">{stageDesc}</p>
+          <div className={`rounded-2xl px-5 py-4 border ${cfg.bg} ${cfg.border}`}>
+            <p className="text-base text-gray-700 leading-relaxed">{cfg.msg}</p>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full text-xl py-6 bg-green-600 hover:bg-green-700 rounded-2xl"
+          <button
+            className="w-full bg-gray-900 hover:bg-gray-800 text-white text-lg font-semibold rounded-2xl py-4 transition-colors"
             onClick={() => router.push('/dashboard')}
           >
-            식단 관리 시작하기 →
-          </Button>
+            Start Tracking →
+          </button>
         </div>
+        <BottomNav />
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-green-50 to-white px-6 py-10">
+    <main className="min-h-screen bg-gray-50 px-5 py-8 pb-28">
       <div className="max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">InBody 정보 입력</h1>
-          <p className="text-xl text-gray-600">InBody 검사 결과지를 보고 입력해 주세요</p>
+        <div className="mb-8">
+          <button onClick={() => router.push('/')} className="text-sm text-gray-400 mb-4 flex items-center gap-1">
+            ← Back
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">InBody Data Entry</h1>
+          <p className="text-base text-gray-500 mt-1">Enter values from your InBody scan report</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-xl font-semibold">이름</Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder="홍길동"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="text-xl py-4 h-14 rounded-xl"
-            />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Basic Info</p>
+
+            <div>
+              <Label htmlFor="name" className="text-base font-medium text-gray-700 mb-1.5 block">Name</Label>
+              <Input id="name" name="name" placeholder="John Doe" value={form.name} onChange={handleChange} required className="h-12 text-base rounded-xl border-gray-200" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="age" className="text-base font-medium text-gray-700 mb-1.5 block">Age</Label>
+                <Input id="age" name="age" type="number" placeholder="70" value={form.age} onChange={handleChange} required min={50} max={100} className="h-12 text-base rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label htmlFor="gender" className="text-base font-medium text-gray-700 mb-1.5 block">Sex</Label>
+                <select
+                  id="gender" name="gender" value={form.gender} onChange={handleChange}
+                  className="w-full h-12 text-base border border-gray-200 bg-white rounded-xl px-3 text-gray-900"
+                >
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="weight" className="text-base font-medium text-gray-700 mb-1.5 block">Weight (kg)</Label>
+                <Input id="weight" name="weight" type="number" placeholder="60" step="0.1" value={form.weight} onChange={handleChange} required className="h-12 text-base rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label htmlFor="height" className="text-base font-medium text-gray-700 mb-1.5 block">Height (cm)</Label>
+                <Input id="height" name="height" type="number" placeholder="160" step="0.1" value={form.height} onChange={handleChange} required className="h-12 text-base rounded-xl border-gray-200" />
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="age" className="text-xl font-semibold">나이</Label>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">InBody Values</p>
+
+            <div>
+              <Label htmlFor="skeletalMuscleMass" className="text-base font-medium text-gray-700 mb-1.5 block">
+                Skeletal Muscle Mass (kg)
+              </Label>
               <Input
-                id="age"
-                name="age"
-                type="number"
-                placeholder="70"
-                value={form.age}
-                onChange={handleChange}
-                required
-                min={50}
-                max={100}
-                className="text-xl py-4 h-14 rounded-xl"
+                id="skeletalMuscleMass" name="skeletalMuscleMass" type="number"
+                placeholder="22.5" step="0.1"
+                value={form.skeletalMuscleMass} onChange={handleChange} required
+                className="h-12 text-base rounded-xl border-gray-200"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="gender" className="text-xl font-semibold">성별</Label>
-              <select
-                id="gender"
-                name="gender"
-                value={form.gender}
-                onChange={handleChange}
-                className="w-full h-14 text-xl border border-input bg-background rounded-xl px-3"
-              >
-                <option value="female">여성</option>
-                <option value="male">남성</option>
-              </select>
+              <p className="text-sm text-gray-400 mt-1.5">Found under &quot;Skeletal Muscle Mass&quot; on your InBody report</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="weight" className="text-xl font-semibold">체중 (kg)</Label>
-              <Input
-                id="weight"
-                name="weight"
-                type="number"
-                placeholder="60"
-                value={form.weight}
-                onChange={handleChange}
-                required
-                step="0.1"
-                className="text-xl py-4 h-14 rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="height" className="text-xl font-semibold">키 (cm)</Label>
-              <Input
-                id="height"
-                name="height"
-                type="number"
-                placeholder="160"
-                value={form.height}
-                onChange={handleChange}
-                required
-                step="0.1"
-                className="text-xl py-4 h-14 rounded-xl"
-              />
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Caregiver (Optional)</p>
+            <div>
+              <Label htmlFor="caregiverEmail" className="text-base font-medium text-gray-700 mb-1.5 block">Caregiver Email</Label>
+              <Input id="caregiverEmail" name="caregiverEmail" type="email" placeholder="family@example.com" value={form.caregiverEmail} onChange={handleChange} className="h-12 text-base rounded-xl border-gray-200" />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="skeletalMuscleMass" className="text-xl font-semibold">
-              골격근량 (kg)
-              <span className="text-base text-gray-500 ml-2">InBody 검사지에 있어요</span>
-            </Label>
-            <Input
-              id="skeletalMuscleMass"
-              name="skeletalMuscleMass"
-              type="number"
-              placeholder="22.5"
-              value={form.skeletalMuscleMass}
-              onChange={handleChange}
-              required
-              step="0.1"
-              className="text-xl py-4 h-14 rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="caregiverEmail" className="text-xl font-semibold">
-              보호자 이메일 <span className="text-base text-gray-500">(선택)</span>
-            </Label>
-            <Input
-              id="caregiverEmail"
-              name="caregiverEmail"
-              type="email"
-              placeholder="family@example.com"
-              value={form.caregiverEmail}
-              onChange={handleChange}
-              className="text-xl py-4 h-14 rounded-xl"
-            />
-          </div>
-
-          <Button
+          <button
             type="submit"
-            size="lg"
-            className="w-full text-xl py-6 bg-green-600 hover:bg-green-700 rounded-2xl mt-4"
             disabled={loading}
+            className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-lg font-semibold rounded-2xl py-4 transition-colors"
           >
-            {loading ? '분석 중...' : '분석하기 →'}
-          </Button>
+            {loading ? 'Analyzing...' : 'Analyze'}
+          </button>
         </form>
       </div>
+      <BottomNav />
     </main>
   )
 }

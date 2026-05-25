@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getStageLabelKo, getStageColor } from '@/lib/sarcopenia'
+import BottomNav from '@/components/BottomNav'
+import { getStageLabelKo } from '@/lib/sarcopenia'
 
 interface DayData {
   date: string
@@ -32,7 +31,6 @@ export default function ReportPage() {
     const stored = localStorage.getItem('eldermuscle_profile')
     if (stored) setProfile(JSON.parse(stored))
 
-    // Build 7-day history from localStorage
     const days: DayData[] = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
@@ -55,12 +53,11 @@ export default function ReportPage() {
   const avgPercentage = weekData.length > 0
     ? Math.round(weekData.reduce((sum, d) => sum + d.percentage, 0) / weekData.length)
     : 0
-
   const daysGoalMet = weekData.filter(d => d.percentage >= 100).length
 
   async function sendReport() {
     if (!profile?.caregiverEmail) {
-      alert('보호자 이메일을 먼저 설정해 주세요.\n온보딩 페이지에서 입력할 수 있습니다.')
+      alert('Please set a caregiver email first.\nYou can add it in the Profile tab.')
       return
     }
     setSending(true)
@@ -71,9 +68,9 @@ export default function ReportPage() {
         body: JSON.stringify({ profile, weekData }),
       })
       if (res.ok) setSent(true)
-      else alert('전송에 실패했습니다. 다시 시도해 주세요.')
+      else alert('Failed to send. Please try again.')
     } catch {
-      alert('전송에 실패했습니다. 다시 시도해 주세요.')
+      alert('Failed to send. Please try again.')
     } finally {
       setSending(false)
     }
@@ -81,118 +78,143 @@ export default function ReportPage() {
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00')
-    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })
   }
 
-  const barColor = (pct: number) =>
-    pct >= 100 ? 'bg-green-500' : pct >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+  const stageConfig = {
+    sarcopenia: { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
+    'at-risk': { color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+    normal: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+  }
+
+  const feedbackText = avgPercentage >= 80
+    ? `Great work this week — ${avgPercentage}% average. Consistent protein intake is protecting your muscle mass.`
+    : avgPercentage >= 50
+    ? `You averaged ${avgPercentage}% this week. Try adding one protein-rich food to each meal to close the gap.`
+    : `Protein intake was low this week (${avgPercentage}% average). Aim for at least 80% of your daily target to prevent muscle loss.`
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-green-600 text-white px-6 py-5">
-        <div className="max-w-lg mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">주간 리포트</h1>
-          <Link href="/dashboard">
-            <Button variant="secondary" className="text-base rounded-xl">← 대시보드</Button>
+    <main className="min-h-screen bg-gray-50 pb-24">
+      <header className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
+        <div className="max-w-lg mx-auto flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-900">Weekly Report</h1>
+          <Link href="/dashboard" className="text-sm font-medium text-gray-400 hover:text-gray-700 transition-colors">
+            Dashboard
           </Link>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-6 py-6 space-y-6">
-        {/* Summary */}
-        <Card className="border-2 shadow-md">
-          <CardHeader>
-            <CardTitle className="text-2xl">
-              {profile?.name ?? '사용자'}님의 이번 주 요약
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {profile && (
-              <div className={`text-lg px-3 py-2 rounded-lg font-semibold ${getStageColor(profile.sarcopeniaStage)} bg-gray-100`}>
-                진단: {getStageLabelKo(profile.sarcopeniaStage)} · 일일 목표 {profile.dailyProteinTarget}g
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <p className="text-4xl font-bold text-green-600">{avgPercentage}%</p>
-                <p className="text-lg text-gray-600 mt-1">평균 달성률</p>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-4 text-center">
-                <p className="text-4xl font-bold text-blue-600">{daysGoalMet}일</p>
-                <p className="text-lg text-gray-600 mt-1">목표 달성일</p>
-              </div>
+      <div className="max-w-lg mx-auto px-5 py-6 space-y-4">
+
+        {/* Summary stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-5">
+            <p className="text-sm text-gray-400 mb-1">Avg. Achievement</p>
+            <p className="text-3xl font-bold text-gray-900">{avgPercentage}<span className="text-lg font-medium text-gray-400">%</span></p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-5">
+            <p className="text-sm text-gray-400 mb-1">Goals Met</p>
+            <p className="text-3xl font-bold text-gray-900">{daysGoalMet}<span className="text-lg font-medium text-gray-400"> days</span></p>
+          </div>
+        </div>
+
+        {/* Profile badge */}
+        {profile && (() => {
+          const s = stageConfig[profile.sarcopeniaStage]
+          return (
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${s.bg} ${s.border}`}>
+              <div className={`w-2 h-2 rounded-full ${s.color.replace('text-', 'bg-')}`} />
+              <span className={`text-sm font-semibold ${s.color}`}>{getStageLabelKo(profile.sarcopeniaStage)}</span>
+              <span className="text-sm text-gray-400">·</span>
+              <span className="text-sm text-gray-500">Target {profile.dailyProteinTarget}g/day</span>
+              <span className="text-sm text-gray-400">·</span>
+              <span className="text-sm text-gray-500">SMI {profile.smi}</span>
             </div>
-          </CardContent>
-        </Card>
+          )
+        })()}
 
         {/* 7-day chart */}
-        <Card className="border-2">
-          <CardHeader>
-            <CardTitle className="text-xl">7일 단백질 달성 현황</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {weekData.map((day) => (
-                <div key={day.date} className="flex items-center gap-3">
-                  <span className="text-base text-gray-500 w-20 shrink-0">{formatDate(day.date)}</span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-8 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${barColor(day.percentage)}`}
-                      style={{ width: `${day.percentage}%` }}
-                    />
-                  </div>
-                  <span className="text-base font-semibold w-16 text-right shrink-0">
-                    {day.consumed}g
-                  </span>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <p className="text-sm font-bold text-gray-900 mb-4">7-Day Protein Progress</p>
+          <div className="space-y-3">
+            {weekData.map((day) => (
+              <div key={day.date} className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 w-16 shrink-0">{formatDate(day.date)}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      day.percentage >= 100 ? 'bg-emerald-500' : day.percentage >= 60 ? 'bg-amber-400' : day.percentage > 0 ? 'bg-red-400' : ''
+                    }`}
+                    style={{ width: `${day.percentage}%` }}
+                  />
                 </div>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-4 text-base">
-              <span className="flex items-center gap-1"><span className="w-4 h-4 bg-green-500 rounded-full inline-block" /> 목표 달성</span>
-              <span className="flex items-center gap-1"><span className="w-4 h-4 bg-yellow-400 rounded-full inline-block" /> 60% 이상</span>
-              <span className="flex items-center gap-1"><span className="w-4 h-4 bg-red-400 rounded-full inline-block" /> 부족</span>
-            </div>
-          </CardContent>
-        </Card>
+                <span className="text-xs font-semibold text-gray-500 w-12 text-right shrink-0">
+                  {day.consumed > 0 ? `${day.consumed}g` : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex gap-4 pt-3 border-t border-gray-50">
+            {[
+              { color: 'bg-emerald-500', label: 'Goal met' },
+              { color: 'bg-amber-400', label: '≥60%' },
+              { color: 'bg-red-400', label: 'Low' },
+            ].map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
 
         {/* AI feedback */}
-        <Card className="bg-green-50 border-green-200 border-2">
-          <CardContent className="pt-5">
-            <h3 className="text-xl font-bold text-green-900 mb-2">🤖 AI 피드백</h3>
-            <p className="text-lg text-green-800">
-              {avgPercentage >= 80
-                ? `훌륭합니다! 이번 주 평균 ${avgPercentage}% 달성했어요. 꾸준한 단백질 섭취가 근육을 지키고 있습니다.`
-                : avgPercentage >= 50
-                ? `이번 주 평균 ${avgPercentage}% 달성했어요. 조금 더 노력하면 근육을 더 잘 지킬 수 있어요. 매 식사마다 단백질 식품을 하나씩 추가해 보세요!`
-                : `이번 주 단백질 섭취가 많이 부족했어요. 근감소증 예방을 위해 매일 목표의 80% 이상은 드셔야 해요. 오늘부터 다시 시작해 봅시다!`}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 bg-gray-900 rounded-lg flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <p className="text-sm font-bold text-gray-900">AI Feedback</p>
+          </div>
+          <p className="text-sm text-gray-600 leading-relaxed">{feedbackText}</p>
+        </div>
 
-        {/* Send to caregiver */}
-        <div className="space-y-3">
+        {/* Actions */}
+        <div className="space-y-2 pt-1">
           {sent ? (
-            <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-5 text-center">
-              <p className="text-2xl font-bold text-green-700">✅ 리포트 전송 완료!</p>
-              <p className="text-lg text-gray-600 mt-1">보호자에게 이메일로 전송되었습니다.</p>
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-5 py-4 text-center">
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-base font-semibold text-emerald-800">Report Sent</p>
+              <p className="text-sm text-emerald-600 mt-0.5">Emailed to caregiver successfully</p>
             </div>
           ) : (
-            <Button
-              size="lg"
-              className="w-full text-xl py-6 bg-green-600 hover:bg-green-700 rounded-2xl"
+            <button
               onClick={sendReport}
               disabled={sending}
+              className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-base font-semibold rounded-2xl py-4 transition-colors flex items-center justify-center gap-2"
             >
-              {sending ? '전송 중...' : '📧 보호자에게 리포트 보내기'}
-            </Button>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+              {sending ? 'Sending...' : 'Send Report to Caregiver'}
+            </button>
           )}
-          <Link href="/onboarding">
-            <Button variant="outline" className="w-full text-xl py-5 rounded-2xl border-2">
-              InBody 정보 업데이트
-            </Button>
+          <Link
+            href="/onboarding"
+            className="w-full border border-gray-200 text-gray-600 text-sm font-medium rounded-2xl py-3.5 transition-colors hover:bg-gray-50 flex items-center justify-center"
+          >
+            Update InBody Data
           </Link>
         </div>
       </div>
+
+      <BottomNav />
     </main>
   )
 }

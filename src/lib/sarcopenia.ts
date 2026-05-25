@@ -35,7 +35,7 @@ export function analyzeSarcopenia(data: InBodyData): SarcopeniaResult {
 }
 
 export function getStageLabelKo(stage: SarcopeniaStage): string {
-  return stage === 'sarcopenia' ? '근감소증' : stage === 'at-risk' ? '위험군' : '정상'
+  return stage === 'sarcopenia' ? 'Sarcopenia' : stage === 'at-risk' ? 'At-Risk' : 'Normal'
 }
 
 export function getStageLabelEn(stage: SarcopeniaStage): string {
