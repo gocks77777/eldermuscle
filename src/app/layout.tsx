@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ElderMuscle — 근감소증을 이기는 AI 영양 관리",
-  description: "AI 기반 노인 단백질 섭취 관리 서비스. 근감소증(Sarcopenia) 예방을 도와드립니다.",
+  title: "ElderMuscle — AI Nutrition Agent for Sarcopenia Prevention",
+  description: "AI-powered protein tracking for elderly users. Diagnose sarcopenia stage from InBody data and track daily nutrition with meal photo analysis.",
 };
 
 export default function RootLayout({
