@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { getStageLabelEn } from '@/lib/sarcopenia'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(req: Request) {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.startsWith('re_placeholder')) {
+    return NextResponse.json({ success: true, demo: true })
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY)
   const { profile, weekData } = await req.json()
 
   if (!profile?.caregiverEmail) {
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
   const { error } = await resend.emails.send({
     from: 'ElderMuscle <noreply@eldermuscle.app>',
     to: profile.caregiverEmail,
-    subject: `[ElderMuscle] ${profile.name}님의 주간 단백질 리포트`,
+    subject: `[ElderMuscle] ${profile.name}'s Weekly Protein Report`,
     html,
   })
 
