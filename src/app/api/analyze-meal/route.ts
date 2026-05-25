@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-import { writeFile, unlink } from 'fs/promises'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const execFileAsync = promisify(execFile)
+const hasGemini = Boolean(
+  process.env.GOOGLE_API_KEY && !process.env.GOOGLE_API_KEY.includes('your_google')
+)
 
 export async function POST(req: Request) {
   const formData = await req.formData()
@@ -15,37 +13,42 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No image provided' }, { status: 400 })
   }
 
-  // Save uploaded image to temp file
   const bytes = await imageFile.arrayBuffer()
-  const ext = imageFile.type.includes('png') ? 'png' : imageFile.type.includes('webp') ? 'webp' : 'jpg'
-  const tmpPath = join(tmpdir(), `meal_${Date.now()}.${ext}`)
-  await writeFile(tmpPath, Buffer.from(bytes))
+  const base64 = Buffer.from(bytes).toString('base64')
+  const mimeType = imageFile.type || 'image/jpeg'
 
-  const prompt = `이미지 파일 ${tmpPath} 를 Read 툴로 읽고, 어떤 음식인지 파악해서 단백질 함량을 추정해줘.
-한식(된장찌개, 삼겹살, 닭가슴살, 두부, 계란, 불고기 등)이 있으면 한국 표준 1인분 기준으로 계산해줘.
-JSON 형식으로만 답해줘 (다른 텍스트 없이):
-{"food_items":[{"name":"음식명(한국어)","name_en":"English name","protein_g":숫자,"confidence":"high|medium|low","portion":"분량 설명"}],"total_protein_g":숫자,"notes":"분석 메모"}`
+  const prompt = `Analyze this meal photo and estimate its protein content.
+Identify all food items visible, using standard serving sizes.
+Return ONLY valid JSON (no other text):
+{"food_items":[{"name":"Food name","name_en":"English name","protein_g":number,"confidence":"high|medium|low","portion":"serving description"}],"total_protein_g":number,"notes":"brief analysis note"}`
+
+  if (!hasGemini) {
+    return NextResponse.json({
+      food_items: [{ name: 'Food', name_en: 'Food', protein_g: 10, confidence: 'low' as const, portion: '1 serving' }],
+      total_protein_g: 10,
+      notes: 'Demo mode: Google API key not configured. Conservative estimate used.',
+    })
+  }
 
   try {
-    const { stdout } = await execFileAsync('claude', [
-      '-p', prompt,
-      '--allowedTools', 'Read',
-      '--add-dir', tmpdir(),
-      '--output-format', 'text',
-    ], { timeout: 60000 })
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-    await unlink(tmpPath).catch(() => {})
+    const result = await model.generateContent([
+      prompt,
+      { inlineData: { data: base64, mimeType } },
+    ])
 
-    const jsonMatch = stdout.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('No JSON in response')
+    const text = result.response.text()
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in Gemini response')
     return NextResponse.json(JSON.parse(jsonMatch[0]))
   } catch (err) {
-    await unlink(tmpPath).catch(() => {})
-    console.error('Claude CLI error:', err)
+    console.error('Gemini Vision error:', err)
     return NextResponse.json({
-      food_items: [{ name: '음식', name_en: 'Food', protein_g: 10, confidence: 'low', portion: '1인분' }],
+      food_items: [{ name: 'Food', name_en: 'Food', protein_g: 10, confidence: 'low' as const, portion: '1 serving' }],
       total_protein_g: 10,
-      notes: '분석에 실패했습니다. 보수적으로 10g으로 기록됩니다.',
+      notes: 'Analysis failed. Conservative estimate used.',
     })
   }
 }
