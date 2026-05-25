@@ -1,36 +1,186 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ElderMuscle — AI Nutrition Agent for Sarcopenia Prevention
 
-## Getting Started
+> An AI-powered protein tracking app for elderly users, built on Google Cloud's Gemini API.  
+> Diagnose sarcopenia stage from InBody scan data and track daily nutrition with meal photo analysis.
 
-First, run the development server:
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
+[![Gemini](https://img.shields.io/badge/Gemini-1.5-blue)](https://ai.google.dev)
+
+---
+
+## Architecture
+
+![Architecture Diagram](architecture_diagram.png)
+
+See [`architecture_diagram.md`](architecture_diagram.md) for a detailed text description.
+
+---
+
+## Features
+
+- **InBody Analysis** — Input muscle mass, height, weight, age and get instant sarcopenia stage diagnosis based on AWGS 2019 clinical criteria (SMI thresholds)
+- **Meal Photo Analysis** — Upload a meal photo; Gemini 1.5 Flash identifies food items and estimates protein content
+- **Daily Protein Tracking** — Visual progress toward personalized daily protein target (g/kg body weight)
+- **AI Nutrition Agent** — Conversational agent powered by Gemini 1.5 Pro with function calling for personalized guidance
+- **Weekly Reports** — Email summary of weekly protein intake trends
+- **Demo Mode** — Fully functional without any API keys (realistic mock data)
+
+---
+
+## Google Cloud Products Used
+
+| Product | Usage |
+|---|---|
+| **Gemini 1.5 Flash** | Meal photo vision analysis — identifies foods, estimates protein |
+| **Gemini 1.5 Pro** | AI nutrition agent with function calling for InBody diagnostics |
+| **Cloud Run** | Containerized deployment (Dockerfile included) |
+
+---
+
+## Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), Tailwind CSS
+- **AI**: Google Gemini 1.5 Flash + Pro (`@google/generative-ai`)
+- **Database**: MongoDB Atlas
+- **Email**: Resend
+- **Deployment**: Vercel / Google Cloud Run
+
+---
+
+## Setup & Run
+
+### Prerequisites
+
+- Node.js 20+
+- npm
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/gocks77777/eldermuscle.git
+cd eldermuscle
+npm install
+```
+
+### 2. Environment Variables
+
+Create a `.env.local` file at the project root:
+
+```env
+# Required for AI features (leave as-is for demo mode)
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Required for data persistence (leave as-is for demo mode)
+MONGODB_URI=your_mongodb_uri_here
+
+# Required for email reports (leave as-is for demo mode)
+RESEND_API_KEY=your_resend_api_key_here
+```
+
+> **Demo Mode**: If you leave these as placeholder values, the app runs fully in demo mode with realistic mock data — no API keys needed.
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Build for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Docker / Cloud Run Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Build
+docker build -t eldermuscle .
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Run locally
+docker run -p 3000:3000 \
+  -e GOOGLE_API_KEY=your_key \
+  -e MONGODB_URI=your_uri \
+  eldermuscle
 
-## Deploy on Vercel
+# Deploy to Google Cloud Run
+gcloud run deploy eldermuscle \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars GOOGLE_API_KEY=your_key,MONGODB_URI=your_uri
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Example Configuration
+
+### Demo Mode (no API keys)
+
+```env
+GOOGLE_API_KEY=your_google_api_key_here
+MONGODB_URI=your_mongodb_uri_here
+RESEND_API_KEY=your_resend_api_key_here
+```
+
+All features work with rotating realistic mock data.
+
+### Full Mode
+
+```env
+GOOGLE_API_KEY=AIza...          # Google AI Studio key
+MONGODB_URI=mongodb+srv://...   # MongoDB Atlas connection string
+RESEND_API_KEY=re_...           # Resend.com API key
+```
+
+---
+
+## Project Structure
+
+```
+eldermuscle/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx              # Landing page
+│   │   ├── dashboard/page.tsx    # Daily protein tracking
+│   │   ├── onboarding/page.tsx   # InBody analysis + profile setup
+│   │   ├── report/page.tsx       # Weekly report
+│   │   └── api/
+│   │       ├── analyze-meal/     # Gemini Vision meal analysis
+│   │       ├── agent/            # Gemini Pro AI agent
+│   │       ├── log-meal/         # MongoDB meal logging
+│   │       ├── save-profile/     # MongoDB profile storage
+│   │       └── send-report/      # Resend email report
+│   ├── components/
+│   │   └── BottomNav.tsx         # Mobile navigation
+│   └── lib/
+│       ├── sarcopenia.ts         # AWGS 2019 SMI calculation
+│       └── mongodb.ts            # MongoDB client singleton
+├── Dockerfile                    # Cloud Run deployment
+└── architecture_diagram.md       # System architecture
+```
+
+---
+
+## Clinical Background
+
+ElderMuscle uses **AWGS 2019** (Asian Working Group for Sarcopenia) diagnostic thresholds:
+
+| Gender | Normal SMI | At-Risk SMI | Sarcopenia SMI |
+|--------|-----------|-------------|----------------|
+| Male   | ≥ 8.0 kg/m² | 7.0–7.9 kg/m² | < 7.0 kg/m² |
+| Female | ≥ 6.0 kg/m² | 5.4–5.9 kg/m² | < 5.4 kg/m² |
+
+SMI = Skeletal Muscle Mass (kg) / Height² (m²)
+
+---
+
+## License
+
+MIT © 2026 — see [LICENSE](LICENSE)
