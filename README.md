@@ -1,203 +1,40 @@
-# ElderMuscle — AI Nutrition Agent for Sarcopenia Prevention
+# ElderMuscle — 노인 근감소증 예방 단백질 관리 앱
 
-> An AI-powered protein tracking app for elderly users, built on Google Cloud's Gemini API.  
-> Diagnose sarcopenia stage from InBody scan data and track daily nutrition with meal photo analysis.
+인바디 수치로 근감소증 단계를 판정하고, 식사 사진으로 단백질 섭취를 추적하는 앱입니다. Google Gemini 기반. 해커톤 출품작(Google Cloud · Splunk Observability 트랙).
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
-[![Gemini](https://img.shields.io/badge/Gemini-1.5-blue)](https://ai.google.dev)
+## 만든 것
 
----
+- 인바디 입력(나이·성별·체중·신장·골격근량) → SMI 계산 → AWGS 2019 기준으로 정상 / 위험 / 근감소증 판정
+- 식사 사진 업로드 → Gemini 1.5 Flash가 음식 식별 → 단백질 추정
+- 체중 기반 일일 단백질 목표와 진행률 대시보드
+- 영양 상담 에이전트: Gemini 1.5 Pro function calling으로 인바디 분석 함수를 호출
+- 주간 리포트 이메일 (Resend)
+- Splunk HEC로 운영 이벤트 전송 (식사 분석, 프로필 저장, 에이전트 호출)
+- 데모 모드: API 키 없이도 mock 데이터로 전체 흐름이 돕니다
 
-## Architecture
+## 구조
 
-![Architecture Diagram](architecture_diagram.png)
+```
+src/app/
+  page.tsx · onboarding/ · dashboard/ · report/
+  api/  analyze-meal · agent · log-meal · save-profile · send-report
+src/lib/   sarcopenia(판정 로직) · mongodb · splunk
+src/components/  MealPhotoUpload · BottomNav
+Dockerfile       Cloud Run 배포용
+```
 
-See [`architecture_diagram.md`](architecture_diagram.md) for a detailed text description.
+Next.js 15 App Router, Tailwind, Gemini 1.5 Flash/Pro, MongoDB Atlas, Resend.
 
----
-
-## Features
-
-- **InBody Analysis** — Input muscle mass, height, weight, age and get instant sarcopenia stage diagnosis based on AWGS 2019 clinical criteria (SMI thresholds)
-- **Meal Photo Analysis** — Upload a meal photo; Gemini 1.5 Flash identifies food items and estimates protein content
-- **Daily Protein Tracking** — Visual progress toward personalized daily protein target (g/kg body weight)
-- **AI Nutrition Agent** — Conversational agent powered by Gemini 1.5 Pro with function calling for personalized guidance
-- **Weekly Reports** — Email summary of weekly protein intake trends
-- **Demo Mode** — Fully functional without any API keys (realistic mock data)
-
----
-
-## Google Cloud Products Used
-
-| Product | Usage |
-|---|---|
-| **Gemini 1.5 Flash** | Meal photo vision analysis — identifies foods, estimates protein |
-| **Gemini 1.5 Pro** | AI nutrition agent with function calling for InBody diagnostics |
-| **Cloud Run** | Containerized deployment (Dockerfile included) |
-
-## Splunk Integration (Observability Track)
-
-ElderMuscle sends operational events to **Splunk via HTTP Event Collector (HEC)** for real-time observability:
-
-| Event | Source Type | Key Fields |
-|---|---|---|
-| Meal photo analyzed | `meal_analysis` | `total_protein_g`, `food_item_count`, `mode` |
-| Meal logged | `meal_logged` | `userId`, `meal_type`, `total_protein_g` |
-| Profile saved | `profile_saved` | `sarcopenia_stage`, `smi`, `daily_protein_target_g` |
-| AI agent query | `agent_interaction` | `function_calls_made`, `response_length` |
-
-Use these events in Splunk to build dashboards tracking:
-- Population-level sarcopenia risk distribution
-- Daily protein intake trends across users
-- Meal analysis usage patterns
-- AI agent engagement metrics
-
----
-
-## Tech Stack
-
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS
-- **AI**: Google Gemini 1.5 Flash + Pro (`@google/generative-ai`)
-- **Database**: MongoDB Atlas
-- **Email**: Resend
-- **Deployment**: Vercel / Google Cloud Run
-
----
-
-## Setup & Run
-
-### Prerequisites
-
-- Node.js 20+
-- npm
-
-### 1. Clone & Install
+## 실행
 
 ```bash
-git clone https://github.com/gocks77777/eldermuscle.git
-cd eldermuscle
 npm install
-```
-
-### 2. Environment Variables
-
-Create a `.env.local` file at the project root:
-
-```env
-# Required for AI features (leave as-is for demo mode)
-GOOGLE_API_KEY=your_google_api_key_here
-
-# Required for data persistence (leave as-is for demo mode)
-MONGODB_URI=your_mongodb_uri_here
-
-# Required for email reports (leave as-is for demo mode)
-RESEND_API_KEY=your_resend_api_key_here
-```
-
-> **Demo Mode**: If you leave these as placeholder values, the app runs fully in demo mode with realistic mock data — no API keys needed.
-
-### 3. Run Development Server
-
-```bash
+cp .env.example .env.local   # GOOGLE_API_KEY, MONGODB_URI, RESEND_API_KEY (비우면 데모 모드)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### 4. Build for Production
-
 ```bash
-npm run build
-npm start
+docker build -t eldermuscle . && docker run -p 3000:3000 -e GOOGLE_API_KEY=... eldermuscle
 ```
 
----
-
-## Docker / Cloud Run Deployment
-
-```bash
-# Build
-docker build -t eldermuscle .
-
-# Run locally
-docker run -p 3000:3000 \
-  -e GOOGLE_API_KEY=your_key \
-  -e MONGODB_URI=your_uri \
-  eldermuscle
-
-# Deploy to Google Cloud Run
-gcloud run deploy eldermuscle \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_API_KEY=your_key,MONGODB_URI=your_uri
-```
-
----
-
-## Example Configuration
-
-### Demo Mode (no API keys)
-
-```env
-GOOGLE_API_KEY=your_google_api_key_here
-MONGODB_URI=your_mongodb_uri_here
-RESEND_API_KEY=your_resend_api_key_here
-```
-
-All features work with rotating realistic mock data.
-
-### Full Mode
-
-```env
-GOOGLE_API_KEY=AIza...          # Google AI Studio key
-MONGODB_URI=mongodb+srv://...   # MongoDB Atlas connection string
-RESEND_API_KEY=re_...           # Resend.com API key
-```
-
----
-
-## Project Structure
-
-```
-eldermuscle/
-├── src/
-│   ├── app/
-│   │   ├── page.tsx              # Landing page
-│   │   ├── dashboard/page.tsx    # Daily protein tracking
-│   │   ├── onboarding/page.tsx   # InBody analysis + profile setup
-│   │   ├── report/page.tsx       # Weekly report
-│   │   └── api/
-│   │       ├── analyze-meal/     # Gemini Vision meal analysis
-│   │       ├── agent/            # Gemini Pro AI agent
-│   │       ├── log-meal/         # MongoDB meal logging
-│   │       ├── save-profile/     # MongoDB profile storage
-│   │       └── send-report/      # Resend email report
-│   ├── components/
-│   │   └── BottomNav.tsx         # Mobile navigation
-│   └── lib/
-│       ├── sarcopenia.ts         # AWGS 2019 SMI calculation
-│       └── mongodb.ts            # MongoDB client singleton
-├── Dockerfile                    # Cloud Run deployment
-└── architecture_diagram.md       # System architecture
-```
-
----
-
-## Clinical Background
-
-ElderMuscle uses **AWGS 2019** (Asian Working Group for Sarcopenia) diagnostic thresholds:
-
-| Gender | Normal SMI | At-Risk SMI | Sarcopenia SMI |
-|--------|-----------|-------------|----------------|
-| Male   | ≥ 8.0 kg/m² | 7.0–7.9 kg/m² | < 7.0 kg/m² |
-| Female | ≥ 6.0 kg/m² | 5.4–5.9 kg/m² | < 5.4 kg/m² |
-
-SMI = Skeletal Muscle Mass (kg) / Height² (m²)
-
----
-
-## License
-
-MIT © 2026 — see [LICENSE](LICENSE)
+자세한 데이터 흐름은 [`architecture_diagram.md`](architecture_diagram.md)에 있습니다.
